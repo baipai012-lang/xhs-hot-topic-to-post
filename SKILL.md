@@ -97,7 +97,7 @@ $env:GEMINI_API_KEY="<your-key>"
 
 > 完全不需要网络和 API，用 Python 本地生成封面图。中文文字完美支持。
 
-脚本位置：`{{OUTPUT_DIR}}/generate_cover_local.py`
+> ⚠️ **首次使用需先创建脚本文件**：将下方代码保存到 `{{OUTPUT_DIR}}/generate_cover_local.py`
 
 ```python
 from PIL import Image, ImageDraw, ImageFont
@@ -155,6 +155,19 @@ if __name__ == "__main__":
 python {{OUTPUT_DIR}}/generate_cover_local.py "AI副业月入过万" "2024最新方向" "{{OUTPUT_DIR}}/cover.png"
 ```
 
+#### 📌 封面图发布前校验（所有方案通用）
+
+封面图生成后，**必须经过以下校验才能进入发布环节**：
+
+| 检查项 | 检查方法 | 失败处理 |
+|--------|----------|----------|
+| 文件是否存在 | `ls -la {{OUTPUT_DIR}}/cover.png` | 重新生成 |
+| 文件大小 < 10MB | `ls -lh` 查看 | 降低分辨率或压缩 |
+| 3:4 比例 | `python -c "from PIL import Image; i=Image.open('{{OUTPUT_DIR}}/cover.png'); print(i.size)"` 验证比例是否为 3:4 | 方案 A 重设 prompt；方案 C 调整 width/height |
+| 中文文字清晰 | (无自动化手段) → **请求用户肉眼确认** | 用户说不行 → 切换到方案 C 或 D |
+
+> ⚠️ **关键规则**：封面图必须让用户确认 OK 后，才进入发布步骤。AI 生成的封面图不一定完美，跳过确认直接发布可能会翻车。
+
 #### 方案 D: 手动设计
 
 > 如果对设计质量有高要求，或者以上方案都不满足需求。
@@ -171,7 +184,7 @@ python {{OUTPUT_DIR}}/generate_cover_local.py "AI副业月入过万" "2024最新
 
 | 变量 | 说明 | 示例值 |
 |------|------|--------|
-| `{{XHS_CLI}}` | xhs CLI 可执行文件路径 | `~/.local/bin/xhs` 或 `C:\Users\<你的用户名>\.local\bin\xhs.exe` |
+| `{{XHS_CLI}}` | xhs CLI 可执行文件路径 | Windows: `C:\Users\<用户名>\.local\bin\xhs.exe` / Mac/Linux: `~/.local/bin/xhs` |
 | `{{NANO_BANANA}}` | Nano Banana Pro 脚本路径 | `skills/nano-banana-pro/scripts/generate_image.py` |
 | `{{ENV_FILE}}` | .env 文件路径（存放 API Key） | `state/.env` |
 | `{{OUTPUT_DIR}}` | 笔记和封面图输出目录 | `~/Desktop` |
@@ -342,7 +355,7 @@ $env:GEMINI_API_KEY="<your-key>"
 - [ ] **emoji 分布均匀** — 每 2-3 段至少一个 emoji，但不过度堆砌
 - [ ] **结尾有互动钩子** — 有提问/投票/选择题引导评论
 - [ ] **话题标签就绪** — 准备了 3-5 个相关话题标签（见 Step 9）
-- [ ] **封面图就绪** — 3:4 比例、有醒目文字、文件 < 10MB
+- [ ] **封面图就绪** — 3:4 比例、有醒目文字、中文文字清晰可读（无乱码）、文件 < 10MB
 - [ ] **字数合理** — 正文 300-800 字
 
 ### Step 8: 生成小红书封面图
@@ -393,8 +406,6 @@ $env:GEMINI_API_KEY="<your-key>"
 ```
 
 输出文件保存到 `{{OUTPUT_DIR}}/cover.png`。
-
-> ⚠️ 如果生成的中文文字变形/乱码，切换到方案 C 用 Pillow 叠加文字。
 
 #### 方案 B: 国内 AI 图像服务
 
@@ -489,6 +500,21 @@ $body = @"
 
 发布成功返回 `id`（笔记 ID）和 `score`（初始评分/曝光分）。
 
+#### 📌 发布后记录
+
+发布成功后，建议记录以下信息供后续回顾：
+
+| 字段 | 示例值 |
+|------|--------|
+| 笔记 ID | `6a27d33b000000001700ae0e` |
+| 标题 | FDE为什么突然爆火？一文讲透AI新风口 |
+| 关键词 | AI FDE 前线部署工程师 |
+| 发布时间 | 2026-06-09 17:00 |
+| 封面方案 | 方案 A (Gemini) |
+| 发布时的初始评分 | score: 10 |
+
+可以追加到 `memory/YYYY-MM-DD.md` 或专门的发布日志文件中。
+
 ## 常见问题与排查
 
 ### 1. xhs CLI 未安装 🆕
@@ -564,7 +590,13 @@ $body = @"
 - **Linux**：安装 Noto CJK 字体：`sudo apt install fonts-noto-cjk`
 - **Mac**：系统自带苹方字体，把脚本中的字体路径改为 `/System/Library/Fonts/PingFang.ttc`
 
-### 9. 笔记包含引用/参考来源
+### 9. 封面图生成后忘记确认就发布
+
+封面图翻车没被发现就直接发布了。
+
+解决：Step 8 已添加封面图校验环节（含用户确认），严格执行即可避免。
+
+### 10. 笔记包含引用/参考来源
 
 用户反馈笔记不能直接发布因为带有了原始笔记来源和参考资料。
 
