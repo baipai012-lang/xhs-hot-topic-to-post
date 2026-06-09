@@ -3,14 +3,15 @@
 > 让 AI Agent 自动追踪热门话题，分析爆款笔记，撰写原创内容，生成精美封面，一键发布到小红书。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Hermes Agent](https://img.shields.io/badge/Hermes-Agent-blue)](https://github.com/nousresearch/hermes-agent)
 [![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey)]()
 
 ---
 
 ## ✨ 这是什么
 
-`xhs-hot-topic-to-post` 是一个为 **Hermes Agent** 设计的 Skill，专注于**热点追踪→内容创作→自动发布**的全流程自动化。
+`xhs-hot-topic-to-post` 是一个 **AI Agent Skill**（工作流指令），专注于**热点追踪→内容创作→自动发布**的全流程自动化。
+
+兼容各类 AI Agent 框架（Hermes Agent、OpenClaw、AutoGPT 等），只要支持 Markdown 格式的 Skill/Workflow 加载即可。
 
 **核心理念**：不做全链路运营的瑞士军刀，只做「追热点→写爆款」这一件事，做到极致。
 
@@ -54,9 +55,9 @@
 ### 安装
 
 ```bash
-# 1. 克隆到 Hermes skills 目录
-git clone https://github.com/<你的用户名>/hermes-skill-xhs-hot-topic.git \
-  ~/.hermes/skills/social-media/xhs-hot-topic-to-post
+# 1. 克隆到你的 skills 目录
+git clone https://github.com/baipai012-lang/xhs-hot-topic-to-post.git \
+  <你的skills目录>/xhs-hot-topic-to-post
 
 # 2. 安装 xhs CLI
 uv tool install xiaohongshu-cli
@@ -67,13 +68,7 @@ xhs --version
 
 ### 使用
 
-启动 Hermes 并加载 skill：
-
-```bash
-hermes -s xhs-hot-topic-to-post
-```
-
-然后告诉 AI：
+在你的 AI Agent 中加载 `SKILL.md`，然后告诉 AI：
 
 ```
 # 模式 B（推荐）：给方向，AI 细化
@@ -103,7 +98,7 @@ AI 会自动执行：
 
 | 依赖 | 安装方式 | 说明 |
 |------|----------|------|
-| **Hermes Agent** | [安装指南](https://hermes-agent.nousresearch.com/docs/) | AI Agent 框架 |
+| **AI Agent 框架** | 任意（Hermes / OpenClaw / AutoGPT 等） | 能加载 Markdown Skill 即可 |
 | **xhs CLI** | `uv tool install xiaohongshu-cli` | 小红书命令行工具 |
 | **Python 3.8+** | [python.org](https://www.python.org/) | xhs CLI 依赖 |
 
@@ -124,7 +119,7 @@ AI 会自动执行：
 xhs-hot-topic-to-post/
 ├── README.md           # 本文件
 ├── LICENSE             # MIT License
-├── SKILL.md            # Skill 主文件（Hermes Agent 加载入口）
+├── SKILL.md            # Skill 主文件（AI Agent 加载入口）
 ├── .gitignore          # Git 忽略规则
 └── examples/           # 示例输出（可选）
     ├── example-note.md
@@ -220,7 +215,6 @@ MIT © 2026
 
 ## 🙏 致谢
 
-- [Hermes Agent](https://github.com/nousresearch/hermes-agent) — Nous Research 的 AI Agent 框架
 - [xiaohongshu-cli](https://github.com/nicepkg/xiaohongshu-cli) — 小红书命令行工具
 - [pigbiglong/xiaohongshu-ops-skill](https://github.com/pigbiglong/xiaohongshu-ops-skill) — 全链路运营 Skill（灵感来源）
 
@@ -229,8 +223,7 @@ MIT © 2026
 ## 📞 联系
 
 如有问题或建议，欢迎：
-- 提交 [GitHub Issue](https://github.com/<你的用户名>/hermes-skill-xhs-hot-topic/issues)
-- 在 Hermes Agent Discord 讨论
+- 提交 [GitHub Issue](https://github.com/baipai012-lang/xhs-hot-topic-to-post/issues)
 
 ---
 
