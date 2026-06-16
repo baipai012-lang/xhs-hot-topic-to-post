@@ -347,7 +347,9 @@ Create a Xiaohongshu 3:4 portrait cover image.
 - **xiaohongshu-cli** — 评论回复、登录管理、笔记读取等日常操作
 - 本 skill 依赖 xiaohongshu-cli 的搜索/阅读/发布功能
 - **爆款公式参考** — `references/xhs-viral-formulas.md` 包含13条世界杯爆款笔记公式，涵盖赛前预测、赛后复盘、情绪吐槽、数据看板等全场景。写笔记时参考此文件选择合适公式。
+- **创作中心 API 参考** — `references/creator-api-reference.md` 记录已抓取的创作中心 API 端点（账号概览、内容分析），用于实现自动化账号数据分析。
 - **批量赛前预测流程** — `references/batch-match-notes.md` 记录"多场比赛×多种公式×配图"的批量生产流程，含ELO查询、深度分析、并行写笔记、并行生成配图、发布全链路。
+- **GitHub 仓库**: `https://github.com/baipai012-lang/xhs-hot-topic-to-post` — 修改技能后需同步推送到此仓库。
 
 ## 工作流程
 
@@ -402,6 +404,10 @@ Create a Xiaohongshu 3:4 portrait cover image.
 ```
 
 > ⚠️ Cookie 有过期时间（约7天），过期后需要重新登录。如果后续步骤报 `Session expired` 错误，回来重新登录即可。
+
+> ⚠️ **登录后必须验证**：登录成功返回后，立即执行 `xhs status` 确认当前账号昵称和 ID，不要仅凭 login 命令的输出就声称"登录成功"。Sonny 要求严谨验证每一步。
+
+> ⚠️ **登录后必须验证**：登录成功返回后，立即执行 `xhs status` 确认当前账号昵称和 ID，不要仅凭 login 命令的输出就声称"登录成功"。Sonny 要求严谨验证每一步。
 
 ### Step 2: 选择关键词 🆕
 
@@ -683,34 +689,65 @@ python {{OUTPUT_DIR}}/generate_cover_local.py "{TITLE}" "{KEYWORDS}" "{{OUTPUT_D
 
 #### 准备话题标签
 
-发布前准备 **3-5 个话题标签**，格式为 `#话题名称#`。
+发布前准备 **3-5 个话题标签**。
+
+> ⚠️ **关键：话题标签必须用 `--topic` 参数，不能写在 body 里！**
+> 
+> 写在正文里的 `#话题` 只是普通文字，不会变成蓝色可点击的话题链接。
+> 必须用 `--topic` 参数才能附加真正的话题标签。
 
 话题选择策略：
 1. **1个大话题** — 搜索量大的泛话题（如 `#AI#`、`#副业#`）
 2. **2-3个中等话题** — 垂直领域话题（如 `#AI副业赚钱#`、`#ChatGPT教程#`）
 3. **1个长尾话题** — 精准匹配内容的小话题（如 `#AI自动化工具推荐#`）
 
-将话题标签追加到正文末尾：
-```
-<正文内容>
+**正确做法**：body 里不要写 `#话题`，用 `--topic` 参数：
+```python
+# ❌ 错误：话题写在body里，显示为普通文字
+body = '...正文...#2026世界杯 #世界杯复盘'
 
-#话题1# #话题2# #话题3# #话题4#
+# ✅ 正确：用 --topic 参数，显示为蓝色可点击话题
+cli(['post', '--title', title, '--body', body,
+     '--topic', '2026世界杯',
+     '--topic', '世界杯复盘',
+     '--topic', '数据说球',
+     ...])
 ```
+
+每个 `--topic` 一个话题，可以多次使用。
 
 #### 选择最佳发布时间 🆕
 
-> 发布时间直接影响初始曝光量，避开凌晨和上午工作时段。
+> 发布时间直接影响初始曝光量。详见 `references/posting-golden-hours.md`。
+
+**通用黄金时段：**
 
 | 时段 | 适合度 | 说明 |
 |------|--------|------|
-| **12:00-13:00** | ⭐⭐⭐⭐⭐ | 午休刷手机高峰 |
-| **18:00-20:00** | ⭐⭐⭐⭐⭐ | 下班通勤 + 晚饭前 |
-| **21:00-23:00** | ⭐⭐⭐⭐ | 睡前刷手机 |
-| **10:00-12:00** | ⭐⭐⭐ | 周末上午高峰 |
-| 08:00-11:00 工作日 | ⭐⭐ | 上班中，流量低 |
-| 00:00-07:00 | ⭐ | 几乎无人活跃 |
+| **中午 11:50-13:00** | ⭐⭐⭐⭐⭐ | 午休刷手机高峰 |
+| **下午 17:55-19:00** | ⭐⭐⭐⭐⭐ | 下班通勤 + 晚饭前 |
+| **晚上 20:30-22:30** | ⭐⭐⭐⭐ | 睡前刷手机 |
+| **早上 8:00-10:00** | ⭐⭐⭐ | 通勤/早餐浏览 |
+
+**体育/足球类（世界杯内容）：**
+
+| 内容类型 | 最佳发布时间 |
+|------|------|
+| 赛前预测 | 赛前 2-6 小时（下午或傍晚） |
+| 赛后复盘 | 赛后 1 小时内（抢时效） |
+| 深度分析 | 晚间 19:00-22:00（用户有完整时间阅读） |
 
 #### 发布命令
+
+> ⚠️ **致命陷阱：话题标签必须用 `--topic` 参数！** 写在正文 body 里的 `#话题` 只是普通文字，不会变成蓝色可点击的话题链接。必须用 `--topic` 参数才能附加真正的话题标签。每个话题单独一个 `--topic`。
+
+```bash
+# ❌ 错误：话题写在body里，显示为普通灰色文字
+--body "...正文...#2026世界杯 #世界杯复盘"
+
+# ✅ 正确：用 --topic 参数，显示为蓝色可点击话题
+--topic "2026世界杯" --topic "世界杯复盘" --topic "数据说球"
+```
 
 > ⚠️ **多图片必须用多个 `--images` 参数**，每个图片一个 `--images`。不能用逗号分隔或空格拼接。
 
@@ -962,6 +999,33 @@ cli(args)
 - 如果连续被限制，暂停自动回复 24-48 小时
 - 确保回复内容自然，不要有明显的模板痕迹
 
+### 13. GitHub Push Protection 拦截 API Key 🆕
+
+```
+错误: remote rejected: push declined due to repository rule violations
+      GITHUB PUSH PROTECTION — Push cannot contain secrets
+```
+
+**原因**：SKILL.md 示例代码中残留了真实 API Key（如 `GEMINI_API_KEY="AQ.Ab8..."`），GitHub secret scanning 检测到后拒绝推送。
+
+**解决**：
+1. 把示例中的真实 Key 替换为占位符 `<your-gemini-api-key>`
+2. 如果 Key 在历史 commit 中，需要 squash 合并：`git reset --soft <clean_commit> && git commit`
+3. 同步更新 Hermes 技能文件（`~/.hermes/skills/.../SKILL.md`）中的同一行
+4. 重新推送
+
+### 14. Hermes 技能与 Git 仓库不同步 🆕
+
+Hermes 实际加载的技能（`~/.hermes/skills/.../`）和 Git 仓库（`/mnt/d/openclaw/workspace/skills/.../`）是两个独立副本。修改技能后必须手动同步。
+
+**同步命令**：
+```bash
+cp ~/.hermes/skills/social-media/xhs-hot-topic-to-post/SKILL.md /mnt/d/openclaw/workspace/skills/xhs-hot-topic-to-post/SKILL.md
+cp ~/.hermes/skills/social-media/xhs-hot-topic-to-post/references/*.md /mnt/d/openclaw/workspace/skills/xhs-hot-topic-to-post/references/
+cd /mnt/d/openclaw/workspace/skills/xhs-hot-topic-to-post
+git add -A && git commit -m "sync: ..." && git push origin main
+```
+
 ### 12. 回复内容不自然 / 翻车 🆕
 
 AI 生成的回复太机械或答非所问。
@@ -970,6 +1034,19 @@ AI 生成的回复太机械或答非所问。
 - 调整 Step 10.3 的 prompt 模板，加入更多上下文（笔记主题、你的观点）
 - 前几次手动确认每条回复质量后再发送
 - 加入"回复预览"环节：先生成所有回复内容让你过目，确认后再批量发送
+
+### 13. 发布参数名错误：`--content` vs `--body` 🆕
+
+```bash
+# ❌ 错误
+xhs post --title "标题" --content "正文"
+# Error: No such option: --content
+
+# ✅ 正确
+xhs post --title "标题" --body "正文"
+```
+
+xhs CLI 的 post 命令正文参数是 `--body`，不是 `--content`。发布前用 `--help` 确认参数名。
 
 ## 文件路径参考
 
@@ -1201,3 +1278,103 @@ sleep $((RANDOM % 31 + 30))
 ```
 
 > ⚠️ **建议**：至少前几次手动执行，确认回复质量 OK 后再开自动模式。自动回复翻车（回复内容不当）比不回复更糟糕。
+
+---
+
+## Step 11: 账号数据诊断 🆕
+
+> 基于小红书创作服务平台 `creator.xiaohongshu.com` 的 6 个核心 API，对账号进行结构化诊断。
+
+### 触发方式
+
+当用户说：
+- 帮我分析小红书账号数据
+- 账号诊断
+- 帮我看看账号表现
+- 分析我的笔记数据、粉丝数据、流量来源
+
+即可启动本步骤。
+
+### 安全边界
+
+- ❌ 不索要 Cookie、a1、Token、Authorization
+- ❌ 不绕过风控、签名、反爬
+- ✅ 只分析用户手动采集的 Response JSON
+- ✅ 风控接口只识别，不逆向
+
+### 数据采集流程
+
+**方式一：用户手动运行采集脚本（推荐）**
+
+告诉用户以下步骤：
+
+1. 打开 `creator.xiaohongshu.com`（确保已登录）
+2. 按 `F12` → 进入 `Console`
+3. 如果提示不能粘贴，先输入 `allow pasting` 回车
+4. 粘贴 `scripts/xhs_collector.js` 全部内容并回车
+5. 看到 `[XHS Collector] 已安装` 后，执行：
+   ```
+   __xhsCollector.collectNow()
+   ```
+6. 等待采集完成（约 3-5 秒），执行：
+   ```
+   __xhsCollector.download()
+   ```
+7. 把下载的 JSON 文件发给我
+
+**方式二：用户手动复制 API Response**
+
+如果用户无法运行脚本，可以手动复制：
+1. 打开 `creator.xiaohongshu.com` → F12 → Network → Fetch/XHR
+2. 依次点击数据看板、账号概览、内容分析、粉丝数据
+3. 找到 6 个核心 API 的 Response JSON，复制给我
+
+### 6 个核心 API
+
+| # | API | 用途 |
+|:--:|------|------|
+| 1 | `note_detail_new` | 7/30天观看、点赞、涨粉、每日趋势 |
+| 2 | `note/analyze/list` | 每篇笔记曝光/阅读/点击率/互动/涨粉 |
+| 3 | `fans/overall_new` | 粉丝总数、涨粉/掉粉趋势 |
+| 4 | `active_fans_new` | 活跃粉丝列表、互动次数 |
+| 5 | `audience/view/periods` | 观看时段分布 |
+| 6 | `audience/source/account` | 流量来源（搜索/推荐/主页） |
+
+### 诊断流程
+
+拿到 JSON 数据后，按 `references/account-diagnosis.md` 中的框架执行：
+
+1. **接口识别** — 判断提供了哪些 API 数据
+2. **账号阶段判断** — 冷启动/破局/增长验证/稳定增长/成熟运营
+3. **内容方向诊断** — 按主题分类，对比各类表现
+4. **单篇笔记诊断** — 给每篇打标签（优质样本/标题强内容弱/无效内容等）
+5. **流量结构诊断** — 搜索型 vs 推荐型 vs 混合型
+6. **粉丝诊断** — 增长趋势、转粉率
+7. **观看时段诊断** — 最佳发布时间建议
+
+### 输出格式
+
+按 14 项模板输出诊断报告：
+```
+1. 一句话诊断
+2. 账号当前阶段
+3. 核心数据概览
+4. 流量结构诊断
+5. 内容方向诊断
+6. 单篇笔记表现诊断
+7. 粉丝增长诊断
+8. 活跃粉丝诊断
+9. 互动与转粉诊断
+10. 观看时段诊断
+11. 当前账号优势
+12. 当前账号问题
+13. 账号定位判断
+14. 最终结论
+```
+
+### 注意事项
+
+- 粉丝 < 30 时，只判断增长趋势，不判断人群结构
+- 粉丝 < 100 时，不做强画像判断
+- 不要因为某篇阅读最高就直接判定最值得复制，要同时看点击率、停留、互动、涨粉
+- 搜索流量高时，重点分析关键词和标题；首页推荐低时，重点看互动率和内容方向一致性

@@ -13,7 +13,7 @@
 
 兼容各类 AI Agent 框架（Hermes Agent、OpenClaw 等），只要支持 Markdown 格式的 Skill 加载即可。
 
-**核心理念**：不做全链路运营的瑞士军刀，只做「追热点→写爆款→发笔记→回评论」这一条龙，做到极致。
+**核心理念**：不做全链路运营的瑞士军刀，只做「追热点→写爆款→发笔记→回评论→诊断账号」这一条龙，做到极致。
 
 ---
 
@@ -46,6 +46,14 @@
 - 🎭 根据评论类型（提问/正面/质疑）生成不同风格的回复
 - 📋 已回复记录管理，避免重复回复
 - ⚠️ **已知限制**：xhs CLI 的 `sub-comments` API 返回 406，仅能回复首条评论和内联的第一批子评论。更深层嵌套评论暂不支持。
+
+### 6. 账号数据诊断 🆕
+- 📊 基于创作服务平台 6 个核心 API 的结构化诊断
+- 📈 账号阶段判断（冷启动→破局→增长→稳定→成熟）
+- 🏷️ 单篇笔记打标签（优质样本/标题强内容弱/无效内容等）
+- 🔍 流量来源分析（搜索型 vs 推荐型 vs 混合型）
+- ⏰ 最佳发布时间建议（基于观看时段数据）
+- 📋 14 项标准诊断报告输出
 
 ---
 
@@ -122,11 +130,14 @@ xhs-hot-topic-to-post/
 ├── SKILL.md                         # Skill 主文件（AI Agent 加载入口）
 ├── .gitignore                       # Git 忽略规则
 ├── references/
-│   ├── xhs-viral-formulas.md        # 13条世界杯爆款笔记公式
+│   ├── xhs-viral-formulas.md         # 13条世界杯爆款笔记公式
+│   ├── posting-golden-hours.md       # 小红书发布黄金时间（16个领域）
+│   ├── account-diagnosis.md          # 账号数据诊断框架（14项模板）
 │   ├── world-cup-content-strategy.md # 世界杯内容策略
 │   └── gemini-api-cover-generation.md # Gemini API 封面图生成指南
 └── scripts/
-    └── generate_cover_gemini.sh     # Gemini 封面图生成脚本
+    ├── generate_cover_gemini.sh      # Gemini 封面图生成脚本
+    └── xhs_collector.js              # 账号数据采集脚本（6个API）
 ```
 
 ---
