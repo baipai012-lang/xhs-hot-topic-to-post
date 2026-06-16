@@ -1,13 +1,100 @@
 ---
 name: "xhs-hot-topic-to-post"
 description: "小红书热门话题追踪→原创笔记→生图封面→发布全流程"
+triggers:
+  - 发小红书
+  - 发布笔记
+  - 热点笔记
+  - 写一篇小红书
+  - 小红书发帖
+  - 追热点
+  - 热门话题
+  - xhs-hot-topic
+  - 帮我发一篇
+  - 发一篇
 ---
 
 # 小红书热点追→原创笔记→AI封面→发布 全流程 Skill
 
 ## 概述
 
-本 Skill 定义了一个完整的自动化工作流：**发现热门话题 → 搜索小红书热门笔记 → 读取分析热度前5篇 → 提炼核心观点撰写原创汇总笔记 → 发布前自检 → 调用 AI 生成小红书风格封面图 → 选择最佳时间发布到小红书**。
+本 Skill 定义了一个完整的自动化工作流：**发现热门话题 → 搜索小红书热门笔记 → 读取分析热度前5篇 → 提炼核心观点撰写原创汇总笔记 → 发布前自检 → 生成小红书风格封面图 → 选择最佳时间发布到小红书**。
+
+## 环境配置（Sonny 的实际环境）
+
+> ⚠️ 以下路径是 Sonny 机器上的实际配置，直接使用即可。
+
+| 变量 | 实际值 | 说明 |
+|------|--------|------|
+| `{{XHS_CLI}}` | `/mnt/c/Users/Administrator/AppData/Roaming/uv/tools/xiaohongshu-cli/Scripts/python.exe -c "import sys; sys.stdout.reconfigure(encoding='utf-8'); from xhs_cli.cli import cli; cli([...])"` | 从 WSL 调用 Windows 上的 xhs CLI |
+| `{{OUTPUT_DIR}}` | `/mnt/d/openclaw/workspace/skills/xhs-hot-topic-to-post/output/` | 笔记和封面图输出目录 |
+| `{{NANO_BANANA}}` |  未安装 | Nano Banana Pro 脚本不存在，不要使用 |
+
+### 封面图生成方案（按优先级）
+
+| 方案 | 状态 | 说明 |
+|------|------|------|
+| **方案 A: Pillow 本地脚本** | ✅ 推荐 | 中文文字完美渲染，微软雅黑字体，3:4比例 |
+| **方案 B: Hermes image_gen** | ✅ 可用 | Hermes 内置图像生成工具，直接调用 |
+| **方案 C: Gemini API** | ⚠️ 中文崩坏 | Gemini 无法可靠渲染中文字符，仅适合无文字的装饰图 |
+| **方案 D: 手动设计** | ✅ 可用 | Canva/稿定设计 |
+
+> 💡 **推荐顺序**：有中文文字 → 必须用 Pillow。无文字装饰图 → image_gen 或 Gemini。
+
+### Pillow 封面图生成脚本
+
+> ⚠️ 必须通过 Windows Python 执行，WSL 的 Python 没有 Pillow。
+
+```bash
+/mnt/c/Users/Administrator/AppData/Roaming/uv/tools/xiaohongshu-cli/Scripts/python.exe << 'EOF'
+import sys
+sys.stdout.reconfigure(encoding='utf-8')
+from PIL import Image, ImageDraw, ImageFont
+
+def generate_cover(title, subtitle, output_path, width=1080, height=1440):
+    img = Image.new('RGB', (width, height))
+    draw = ImageDraw.Draw(img)
+    for y in range(height):
+        r = int(20 + (80 - 20) * y / height)
+        g = int(20 + (40 - 20) * y / height)
+        b = int(80 + (120 - 80) * y / height)
+        draw.line([(0, y), (width, y)], fill=(r, g, b))
+    
+    try:
+        font_title = ImageFont.truetype("msyh.ttc", 120)
+        font_sub = ImageFont.truetype("msyh.ttc", 60)
+    except:
+        font_title = ImageFont.load_default()
+        font_sub = ImageFont.load_default()
+    
+    bbox = draw.textbbox((0, 0), title, font=font_title)
+    x = (width - bbox[2] + bbox[0]) // 2
+    y_title = height // 3
+    draw.text((x+4, y_title+4), title, fill="black", font=font_title)
+    draw.text((x, y_title), title, fill="white", font=font_title)
+    
+    bbox2 = draw.textbbox((0, 0), subtitle, font=font_sub)
+    x2 = (width - bbox2[2] + bbox2[0]) // 2
+    draw.text((x2, y_title + 180), subtitle, fill="#CCCCCC", font=font_sub)
+    
+    img.save(output_path)
+    print(f"✅ 封面图已生成: {output_path}")
+
+generate_cover("标题", "副标题", r"D:\openclaw\workspace\skills\xhs-hot-topic-to-post\output\cover.png")
+EOF
+```
+
+### 发布命令（实际用法）
+
+```bash
+/mnt/c/Users/Administrator/AppData/Roaming/uv/tools/xiaohongshu-cli/Scripts/python.exe -c "
+import sys; sys.stdout.reconfigure(encoding='utf-8')
+from xhs_cli.cli import cli
+cli(['post', '--title', '标题', '--body', '正文内容', '--images', 'D:\\\\openclaw\\\\workspace\\\\skills\\\\xhs-hot-topic-to-post\\\\output\\\\cover.png'])
+"
+```
+
+> ⚠️ Windows 路径中的反斜杠需要双重转义 `\\\\`。
 
 ## 前置条件
 
@@ -200,15 +287,76 @@ python {{OUTPUT_DIR}}/generate_cover_local.py "AI副业月入过万" "2024最新
 $env:PYTHONUTF8="1"
 $env:PYTHONIOENCODING="utf-8"
 
-# 2. Gemini API Key
-#    ✅ 推荐：从 .env 文件加载
-#    ❌ 不要通过 --api-key 参数传入（中文/特殊字符会导致 ASCII 编码错误）
+# 2. Gemini API Key（用于封面图生成）
+#    获取: https://aistudio.google.com/apikey
+#    ⚠️ 粘贴时确保前后无空格/隐藏字符，否则报 API_KEY_INVALID
 $env:GEMINI_API_KEY="<your-key>"
 ```
 
+### Gemini API 封面图生成（方案 A 详细步骤）
+
+> 不需要安装 `google-generativeai` SDK，直接用 curl 调用 REST API 即可。
+
+**模型选择**（2026-06 验证可用）：
+- ✅ `gemini-2.5-flash-image` — 支持 TEXT + IMAGE 输出
+-  `gemini-2.0-flash-exp-image-generation` — 已下线，返回 404
+- ❌ `gemini-2.0-flash-preview-image-generation` — 已下线
+
+**curl 调用示例**：
+```bash
+curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=$GEMINI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "contents": [{"parts": [{"text": "<prompt>"}]}],
+    "generationConfig": {"responseModalities": ["TEXT", "IMAGE"]}
+  }' > /tmp/gemini_response.json
+```
+
+**提取图片**（Python）：
+```python
+import json, base64
+with open('/tmp/gemini_response.json') as f:
+    data = json.load(f)
+for p in data['candidates'][0]['content']['parts']:
+    if 'inlineData' in p:
+        img = base64.b64decode(p['inlineData']['data'])
+        with open('cover.png', 'wb') as out:
+            out.write(img)
+        print(f'✅ Saved: {len(img)} bytes')
+```
+
+**Prompt 模板**（小红书封面）：
+```
+Create a Xiaohongshu 3:4 portrait cover image.
+大标题文字「{TITLE}」居中显示，使用白色粗体无衬线字体。
+副标题「{SUBTITLE}」在标题下方，字号较小。
+背景：深蓝到紫色科技感渐变。
+整体风格：现代简约、高级感、信息流中醒目。
+确保文字清晰可读，与背景有强对比。
+```
+
+**常见错误**：
+| 错误 | 原因 | 解决 |
+|------|------|------|
+| `API_KEY_INVALID` | Key 复制时有隐藏字符 | 重新从 aistudio 复制，确保无空格 |
+| `NOT_FOUND` | 模型名已下线 | 用 `gemini-2.5-flash-image` |
+| 返回只有 text 无 image | prompt 不够明确 | 强调 "3:4 portrait cover image" + "文字居中" |
+
+## 相关 Skills
+
+- **xiaohongshu-cli** — 评论回复、登录管理、笔记读取等日常操作
+- 本 skill 依赖 xiaohongshu-cli 的搜索/阅读/发布功能
+- **爆款公式参考** — `references/xhs-viral-formulas.md` 包含13条世界杯爆款笔记公式，涵盖赛前预测、赛后复盘、情绪吐槽、数据看板等全场景。写笔记时参考此文件选择合适公式。
+- **批量赛前预测流程** — `references/batch-match-notes.md` 记录"多场比赛×多种公式×配图"的批量生产流程，含ELO查询、深度分析、并行写笔记、并行生成配图、发布全链路。
+
 ## 工作流程
 
-### Step 0: 确认关键词来源 🆕
+> 📁 **Support files**:
+> - `scripts/generate_cover_gemini.sh` — Reusable Gemini cover generation script
+> - `references/gemini-api-cover-generation.md` — Gemini API details, model discovery, error handling
+> - `references/world-cup-content-strategy.md` — 小红书世界杯话题爆款笔记类型分析、内容策略、合规红线
+
+### Step 0: 确认关键词来源 
 
 > ⚠️ **执行本 skill 前，必须先跟用户对齐关键词。** 不要自作主张选话题。
 
@@ -379,9 +527,83 @@ $env:GEMINI_API_KEY="<your-key>"
                 └── ❌ 没有 → 方案 D（手动 Canva/稿定设计）
 ```
 
-#### 方案 A: Gemini API
+#### 方案 C: Gemini API（仅适合无中文文字的装饰图）
 
-##### 动态 Prompt 模板
+> ⚠️ **关键限制：Gemini 无法可靠渲染中文文字。** `gemini-2.5-flash-image` 返回的图片中，中文字符经常出现笔画缺失、位置偏移、乱码等问题。**不要用 Gemini 生成需要中文文字的封面图。** 仅适合生成纯装饰性背景图（无文字或只有英文文字）。
+
+##### 模型选择
+
+#### 方案 C: Gemini API（仅适合无中文文字的装饰图）
+
+> ⚠️ **关键限制：Gemini 无法可靠渲染中文文字。** `gemini-2.5-flash-image` 返回的图片中，中文字符经常出现笔画缺失、位置偏移、乱码等问题。**不要用 Gemini 生成需要中文文字的封面图。** 仅适合生成纯装饰性背景图（无文字或只有英文文字）。
+
+##### 模型选择
+
+**当前可用模型**: `gemini-2.5-flash-image`
+
+> ⚠️ 模型名称经常变化。如果调用失败，用以下命令查询最新可用模型：
+> ```bash
+> curl -s "https://generativelanguage.googleapis.com/v1beta/models?key=$GEMINI_API_KEY" | python3 -c "
+> import sys, json
+> data = json.load(sys.stdin)
+> for m in data.get('models', []):
+>     name = m.get('name', '')
+>     if 'image' in name.lower() or 'flash' in name.lower():
+>         print(name)
+> "
+> ```
+
+##### API Key 格式
+
+Gemini API Key 有两种格式：
+- `AIzaSy...` — 旧格式，可能已失效
+- `AQ.Ab8RN6...` — 新格式（2025+），从 https://aistudio.google.com/apikey 获取
+
+如果旧格式 Key 返回 `API_KEY_INVALID`，去 AI Studio 重新生成。
+
+##### REST API 调用方式
+
+```bash
+# 设置环境变量（一次性）
+export GEMINI_API_KEY="<your-gemini-api-key>"
+
+# 调用 Gemini 生成封面图
+curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=$GEMINI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "contents": [{
+      "parts": [{
+        "text": "Create a Xiaohongshu 3:4 portrait cover image. 大标题文字「{TITLE}」居中显示，使用白色粗体无衬线字体。副标题「{SUBTITLE}」在标题下方，字号较小。背景：深蓝到紫色科技感渐变。整体风格：现代简约、高级感、信息流中醒目。确保文字清晰可读，与背景有强对比。"
+      }]
+    }],
+    "generationConfig": {
+      "responseModalities": ["TEXT", "IMAGE"]
+    }
+  }' > /tmp/gemini_response.json
+
+# 提取图片并保存
+python3 -c "
+import json, base64
+with open('/tmp/gemini_response.json') as f:
+    data = json.load(f)
+if 'candidates' in data:
+    parts = data['candidates'][0]['content']['parts']
+    for p in parts:
+        if 'inlineData' in p:
+            img_data = base64.b64decode(p['inlineData']['data'])
+            with open('{{OUTPUT_DIR}}/cover.png', 'wb') as out:
+                out.write(img_data)
+            print(f'✅ Image saved! Size: {len(img_data)} bytes')
+        elif 'text' in p:
+            print(f'Text: {p[\"text\"][:200]}')
+else:
+    print('Error:', json.dumps(data, indent=2)[:500])
+"
+#### 方案 C: Gemini API（仅适合无中文文字的装饰图）
+
+> ⚠️ **关键限制：Gemini 无法可靠渲染中文文字。** `gemini-2.5-flash-image` 返回的图片中，中文字符经常出现笔画缺失、位置偏移、乱码等问题。**不要用 Gemini 生成需要中文文字的封面图。** 仅适合生成纯装饰性背景图（无文字或只有英文文字）。
+
+##### 模型选择
 
 > 不要每次手写 prompt，用模板根据笔记内容自动生成。
 
@@ -399,10 +621,26 @@ $env:GEMINI_API_KEY="<your-key>"
 ##### 执行命令
 
 ```bash
-{{NANO_BANANA}} `
-  --prompt "<根据上方模板生成的 prompt>" `
-  --filename "cover.png" `
-  --resolution 2K
+# 1. 调用 API
+curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=$GEMINI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "contents": [{"parts": [{"text": "<prompt>"}]}],
+    "generationConfig": {"responseModalities": ["TEXT", "IMAGE"]}
+  }' > /tmp/gemini_response.json
+
+# 2. 提取图片
+python3 -c "
+import json, base64
+with open('/tmp/gemini_response.json') as f:
+    data = json.load(f)
+for p in data['candidates'][0]['content']['parts']:
+    if 'inlineData' in p:
+        img = base64.b64decode(p['inlineData']['data'])
+        with.open('{{OUTPUT_DIR}}/cover.png', 'wb') as out:
+            out.write(img)
+        print(f'✅ Saved: {len(img)} bytes')
+"
 ```
 
 输出文件保存到 `{{OUTPUT_DIR}}/cover.png`。
@@ -423,7 +661,15 @@ python {{OUTPUT_DIR}}/generate_cover_local.py "{TITLE}" "{KEYWORDS}" "{{OUTPUT_D
 
 打开 Canva / 稿定设计 → 搜索"小红书封面" → 选 3:4 模板 → 替换标题 → 导出到 `{{OUTPUT_DIR}}/cover.png`
 
-#### 封面图关键设计原则（所有方案通用）
+#### 笔记排序注意
+
+`xhs my-notes` 返回的笔记列表按**最新在前**排序。但用户通常按**发布时间从早到晚**计数（"第一篇"=最早发布的）。沟通时注意对齐，避免混淆。
+
+### 封面图生成注意
+
+- **必须用 Windows Python 执行 Pillow 脚本**，WSL 的 Python 没有 Pillow 模块
+- Windows 路径中的反斜杠在 Python 字符串中需要双重转义 `\\\\`
+- 生成后必须让用户确认封面效果，不要跳过确认直接发布
 
 | 原则 | 说明 |
 |------|------|
@@ -466,12 +712,56 @@ python {{OUTPUT_DIR}}/generate_cover_local.py "{TITLE}" "{KEYWORDS}" "{{OUTPUT_D
 
 #### 发布命令
 
+> ⚠️ **多图片必须用多个 `--images` 参数**，每个图片一个 `--images`。不能用逗号分隔或空格拼接。
+
 ```bash
-{{XHS_CLI}} post `
-  --title "<笔记标题>" `
-  --body "<笔记正文（含话题标签）>" `
-  --images "{{OUTPUT_DIR}}/cover.png"
+# 单张图片
+{{XHS_CLI}} post --title "标题" --body "正文" --images "path/to/cover.png"
+
+# 多张图片（每个 --images 一张）
+{{XHS_CLI}} post --title "标题" --body "正文" \
+  --images "path/to/01.png" \
+  --images "path/to/02.png" \
+  --images "path/to/03.png"
 ```
+
+#### 从 WSL 发布：脚本文件方式（推荐）🆕
+
+> ⚠️ **致命陷阱：中文路径编码问题**。从 WSL 调用 Windows Python 时，命令行中的中文路径会被 GBK 编码破坏，导致 `can't open file` 或 `Got unexpected extra arguments` 错误。
+
+**正确做法**：把发布逻辑写成 `.py` 脚本文件，放到纯英文路径，然后用 Windows Python 执行。
+
+```python
+# -*- coding: utf-8 -*-
+# 保存到 C:\Users\Administrator\publish.py（纯英文路径！）
+import sys, os
+sys.stdout.reconfigure(encoding='utf-8')
+
+# 图片也复制到纯英文路径
+base = r"C:\Users\Administrator\temp_imgs"
+images = [os.path.join(base, f) for f in ["01.jpg", "02.png", "03.png"]]
+
+title = "你的标题"
+body = """正文内容（可以包含中文）"""
+
+from xhs_cli.cli import cli
+args = ['post', '--title', title, '--body', body]
+for img in images:
+    args.extend(['--images', img])  # 每个图片单独 --images
+cli(args)
+```
+
+执行：
+```bash
+# 从 WSL 调用（路径中不能有中文）
+/mnt/c/Users/Administrator/AppData/Roaming/uv/tools/xiaohongshu-cli/Scripts/python.exe "C:\Users\Administrator\publish.py"
+```
+
+**完整发布流程（从 WSL）**：
+1. 把图片复制到纯英文临时目录（如 `C:\Users\Administrator\temp_imgs\`）
+2. 把发布脚本写到纯英文路径（如 `C:\Users\Administrator\publish.py`）
+3. 用 Windows Python 执行脚本
+4. 发布成功后清理临时文件
 
 #### 长文本发布示例（PowerShell here-string）🆕
 
@@ -534,13 +824,63 @@ $body = @"
 
 解决：重新 `{{XHS_CLI}} login --qrcode` 扫码登录
 
-### 3. 编码问题
+### 3.5. 中文路径被 GBK 破坏（WSL→Windows 调用）🆕
+
+```
+错误: can't open file 'C:\\...\\����VSĦ���\\...'
+或: Got unexpected extra arguments (...����...)
+```
+
+**原因**：从 WSL 调用 Windows Python 时，命令行参数中的中文路径被 Windows 控制台 GBK 编码破坏。
+
+**解决**：
+1. 不要直接在命令行传中文路径参数
+2. 把图片复制到纯英文路径（如 `C:\Users\Administrator\temp_imgs\`）
+3. 把发布脚本写成 `.py` 文件放到纯英文路径
+4. 在脚本内用 `os.path.join()` 构建路径（脚本内的字符串不受命令行编码影响）
+5. 用 Windows Python 执行该脚本
+
+详见 Step 9 "从 WSL 发布：脚本文件方式"。
+
+### 3.6. xhs CLI 多图片发布：必须逐个 --images 🆕
+
+```
+错误: Got unexpected extra arguments (...)
+```
+
+**原因**：`--images` 参数只接受单张图片。多张图片必须用多个 `--images` 参数。
+
+**正确做法**：
+```python
+args = ['post', '--title', title, '--body', body]
+for img in images:
+    args.extend(['--images', img])
+cli(args)
+```
 
 ```
 错误: UnicodeEncodeError: 'gbk' codec can't encode character
 ```
 
 解决：确认已设置 `$env:PYTHONUTF8="1"` 和 `$env:PYTHONIOENCODING="utf-8"`（见"环境变量"章节）
+
+### 3.5. 中文路径被 GBK 破坏（WSL→Windows 调用）🆕
+
+```
+错误: can't open file 'C:\\...\\����VSĦ���\\...'
+或: Got unexpected extra arguments (...����...)
+```
+
+**原因**：从 WSL 调用 Windows Python 时，命令行参数中的中文路径被 Windows 控制台 GBK 编码破坏。
+
+**解决**：
+1. 不要直接在命令行传中文路径参数
+2. 把图片复制到纯英文路径（如 `C:\Users\Administrator\temp_imgs\`）
+3. 把发布脚本写成 `.py` 文件放到纯英文路径
+4. 在脚本内用 `os.path.join()` 构建路径（脚本内的字符串不受命令行编码影响）
+5. 用 Windows Python 执行该脚本
+
+详见 Step 9 "从 WSL 发布：脚本文件方式"。
 
 ### 4. Gemini API 无法访问 🆕
 
